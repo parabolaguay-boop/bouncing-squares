@@ -98,10 +98,9 @@ module tt_um_bouncing_squares(
     (pix_x >= x_pos[4] && pix_x < x_pos[4] + width)           
     ? 2'b11 : 2'b00;
 
-  assign width = (x_pos[0] + y_pos[1]) / 4;
-
   integer i;
   always @(posedge vsync) begin
+    width <= (x_pos[0] + y_pos[1]) / 4;
     for (i = 0; i < 5; i = i + 1) begin
       if (moving_y_state[i]) begin
         y_pos[i] <= y_pos[i] + 6 + i;
