@@ -1,0 +1,160 @@
+/*
+ * Copyright (c) 2024 Uri Shaked
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+`default_nettype none
+
+module tt_um_vga_example(
+  input  wire [7:0] ui_in,    // Dedicated inputs
+  output wire [7:0] uo_out,   // Dedicated outputs
+  input  wire [7:0] uio_in,   // IOs: Input path
+  output wire [7:0] uio_out,  // IOs: Output path
+  output wire [7:0] uio_oe,   // IOs: Enable path (active high: 0=input, 1=output)
+  input  wire       ena,      // always 1 when the design is powered, so you can ignore it
+  input  wire       clk,      // clock
+  input  wire       rst_n     // reset_n - low to reset
+);
+
+  // VGA signals
+  wire hsync;
+  wire vsync;
+  wire [1:0] R;
+  wire [1:0] G;
+  wire [1:0] B;
+  wire video_active;
+  wire [9:0] pix_x;
+  wire [9:0] pix_y;
+  wire sound;
+
+
+  // TinyVGA PMOD
+  assign uo_out = {hsync, B[0], G[0], R[0], vsync, B[1], G[1], R[1]};
+
+  // Unused outputs assigned to 0.
+  assign uio_out = 0;
+  assign uio_oe  = 0;
+
+  // Suppress unused signals warning
+  wire _unused_ok = &{ena, ui_in, uio_in};
+
+  reg [9:0] counter;
+
+  hvsync_generator hvsync_gen(
+    .clk(clk),
+    .reset(~rst_n),
+    .hsync(hsync),
+    .vsync(vsync),
+    .display_on(video_active),
+    .hpos(pix_x),
+    .vpos(pix_y)
+  );
+
+  localparam width = 80;
+  
+  reg moving_y_state [1:0] ;
+  reg moving_x_state [1:0];
+  reg signed [9:0] y_pos [1:0];
+  reg signed [10:0] x_pos [1:0];
+
+  initial begin
+    moving_x_state[0] = 1'b0;
+    moving_x_state[1] = 1'b1;
+    moving_y_state[0] = 1'b1;
+    moving_y_state[1] = 1'b0;
+
+    y_pos[0] = 80;
+    y_pos[1] = 80;
+    x_pos[0] = 14;
+    x_pos[1] = 120;
+  end
+
+  assign G = video_active && 
+    (pix_y >= y_pos[0] && pix_y < y_pos[0] + width) &&   // block height 40
+    (pix_x >= x_pos[0] && pix_x < x_pos[0] + width) ||         // block width 40
+    (pix_y >= y_pos[1] && pix_y < y_pos[1] + width) &&   // block height 40
+    (pix_x >= x_pos[1] && pix_x < x_pos[1] + width)           // block width 40
+    ? 2'b11 : 2'b00;
+  assign B = video_active ? 1 : 2'b00;
+  //assign B = video_active && -moving_x <= 10'b0000100100 ? 2'b11: 2'b00;
+
+  wire collision =  (x_pos[0] < x_pos[1]+width) && (x_pos[0]+width > x_pos[1]) &&
+                    (y_pos[0] < y_pos[1]+width) && (y_pos[0]+width > y_pos[1]);
+
+  integer i;
+  integer overlap_x;
+  integer overlap_y;
+  always @(posedge vsync) begin
+    for (i = 0; i < 2; i = i + 1) begin
+      if (moving_y_state[i]) begin
+        y_pos[i] <= y_pos[i] + 3;
+      end 
+      else begin
+        y_pos[i] <= y_pos[i] - 3;
+      end
+      if (y_pos[i] <= 0) begin
+        moving_y_state[i] <= 1'b1;
+      end
+      else if (y_pos[i] >= 480-width) begin
+        moving_y_state[i] <= 1'b0;
+      end
+    end
+    for (i = 0; i < 2; i = i + 1) begin
+      if (moving_x_state[i]) begin
+        x_pos[i] <= x_pos[i] + 3;
+      end 
+      else begin
+        x_pos[i] <= x_pos[i] - 3;
+      end
+      if (x_pos[i] <= 0) begin
+        moving_x_state[i] <= 1'b1;
+      end
+      else if (x_pos[i] >= 640-width) begin
+        moving_x_state[i] <= 1'b0;
+      end
+    end
+
+    overlap_x = 0;
+    overlap_y = 0;
+
+    if ((x_pos[0] < x_pos[1]+width) && (x_pos[0]+width > x_pos[1]) &&
+        (y_pos[0] < y_pos[1]+width) && (y_pos[0]+width > y_pos[1])) begin
+
+        // horizontal
+        if (x_pos[0] < x_pos[1])
+            overlap_x = (x_pos[0]+width) - x_pos[1];
+        else
+            overlap_x = (x_pos[1]+width) - x_pos[0];
+
+        x_pos[0] <= x_pos[0] - overlap_x/2;
+        x_pos[1] <= x_pos[1] + overlap_x/2;
+        if (moving_x_state[0] && !moving_x_state[1]) begin
+          moving_x_state[0] <= ~moving_x_state[0];
+          moving_x_state[1] <= ~moving_x_state[1];
+        end
+
+        // vertical
+        if (y_pos[0] < y_pos[1])
+            overlap_y = (y_pos[0]+width) - y_pos[1];
+        else
+            overlap_y = (y_pos[1]+width) - y_pos[0];
+
+        y_pos[0] <= y_pos[0] - overlap_y/2;
+        y_pos[1] <= y_pos[1] + overlap_y/2;
+        moving_y_state[0] <= ~moving_y_state[0];
+        moving_y_state[1] <= ~moving_y_state[1];
+    end
+
+  end
+
+
+
+  always @(posedge vsync, negedge rst_n) begin
+    if (~rst_n) begin
+      counter <= 0;
+    end else begin
+      counter <= counter + 1;
+    end
+  end
+  
+endmodule
