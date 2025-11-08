@@ -5,7 +5,7 @@
 
 `default_nettype none
 
-module tt_um_bouncing_squares(
+module tt_um_vga_example(
   input  wire [7:0] ui_in,    // Dedicated inputs
   output wire [7:0] uo_out,   // Dedicated outputs
   input  wire [7:0] uio_in,   // IOs: Input path
@@ -97,16 +97,36 @@ module tt_um_bouncing_squares(
     (pix_x >= x_pos[2] && pix_x < x_pos[2] + width)        
     ? 2'b11 : 2'b00;
 
+  /*wire signed [10:0][15:0] vals;
+  initial begin
+    vals[0] = 6;
+    vals[1] = -10;
+    vals[2] = 7;
+    vals[3] = -3;
+    vals[4] = 7;
+    vals[5] = -11;
+    vals[6] = 8;
+    vals[7] = -4;
+    vals[8] = 8;
+    vals[9] = -12;
+    vals[10] = 9;
+    vals[11] = -5;
+    vals[12] = 9;
+    vals[13] = -13;
+    vals[14] = 10;
+    vals[15] = -6;
+  end;*/
+
 
   integer i;
   always @(posedge vsync) begin
     width <= (x_pos[0] + y_pos[1]) >> 2;
-    for (i = 0; i < 5; i = i + 1) begin
+    for (i = 0; i < 4; i = i + 1) begin
       if (moving_y_state[i]) begin
         y_pos[i] <= y_pos[i] + 6 + i;
       end
       else begin
-        y_pos[i] <= y_pos[i] - 10 - i;
+        y_pos[i] <= y_pos[i] - 9 + ~i;
       end
       if (y_pos[i] <= 0) begin
         moving_y_state[i] <= 1'b1;
@@ -115,12 +135,12 @@ module tt_um_bouncing_squares(
         moving_y_state[i] <= 1'b0;
       end
     end
-    for (i = 0; i < 5; i = i + 1) begin
+    for (i = 0; i < 4; i = i + 1) begin
       if (moving_x_state[i]) begin
         x_pos[i] <= x_pos[i] + 7 + i;
       end 
       else begin
-        x_pos[i] <= x_pos[i] - 3 - i;
+        x_pos[i] <= x_pos[i] - 2 + ~i;
       end
       if (x_pos[i] <= 0) begin
         moving_x_state[i] <= 1'b1;
