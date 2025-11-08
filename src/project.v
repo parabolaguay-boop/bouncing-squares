@@ -5,7 +5,7 @@
 
 `default_nettype none
 
-module tt_um_bouncing_squares(
+module tt_um_vga_example(
   input  wire [7:0] ui_in,    // Dedicated inputs
   output wire [7:0] uo_out,   // Dedicated outputs
   input  wire [7:0] uio_in,   // IOs: Input path
@@ -50,10 +50,10 @@ module tt_um_bouncing_squares(
 
   reg[8:0] width = 80;
 
-  reg moving_y_state [4:0] ;
-  reg moving_x_state [4:0];
-  reg signed [9:0] y_pos [4:0];
-  reg signed [10:0] x_pos [4:0];
+  reg moving_y_state [3:0] ;
+  reg moving_x_state [3:0];
+  reg signed [9:0] y_pos [3:0];
+  reg signed [10:0] x_pos [3:0];
 
   initial begin
     moving_x_state[0] = 1'b0;
@@ -79,24 +79,24 @@ module tt_um_bouncing_squares(
     x_pos[4] = 40;
   end
 
+  wire signed [9:0] y3width = y_pos[3] + width;
+  wire signed [9:0] x3width = x_pos[3] + width;
+
   assign G = video_active && 
     (pix_y >= y_pos[0] && pix_y < y_pos[0] + width) &&   
     (pix_x >= x_pos[0] && pix_x < x_pos[0] + width) ||
-    (pix_y >= y_pos[3] && pix_y < y_pos[3] + width) &&  
-    (pix_x >= x_pos[3] && pix_x < x_pos[3] + width) 
+    (pix_y >= y_pos[3] && pix_y < y3width) &&  
+    (pix_x >= x_pos[3] && pix_x < x3width) 
      ? 2'b11: 2'b00;         
   assign R = video_active && (pix_y >= y_pos[1] && pix_y < y_pos[1] + width) &&   
     (pix_x >= x_pos[1] && pix_x < x_pos[1] + width) ||
-    (pix_y >= y_pos[3] && pix_y < y_pos[3] + width) &&   
-    (pix_x >= x_pos[3] && pix_x < x_pos[3] + width) ||
-    (pix_y >= y_pos[4] && pix_y < y_pos[4] + width) &&   
-    (pix_x >= x_pos[4] && pix_x < x_pos[4] + width)           
+    (pix_y >= y_pos[3] && pix_y < y3width) &&   
+    (pix_x >= x_pos[3] && pix_x < x3width)        
     ? 2'b11 : 2'b00;
   assign B = video_active && (pix_y >= y_pos[2] && pix_y < y_pos[2] + width) &&  
-    (pix_x >= x_pos[2] && pix_x < x_pos[2] + width) ||
-    (pix_y >= y_pos[4] && pix_y < y_pos[4] + width) &&   
-    (pix_x >= x_pos[4] && pix_x < x_pos[4] + width)           
+    (pix_x >= x_pos[2] && pix_x < x_pos[2] + width)        
     ? 2'b11 : 2'b00;
+
 
   integer i;
   always @(posedge vsync) begin
